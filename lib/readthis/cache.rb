@@ -57,7 +57,7 @@ module Readthis
       )
 
       @pool = ConnectionPool.new(pool_options(options)) do
-        Redis.new(options.fetch(:redis, {}))
+        (options[:redis_class] || Redis).new(options.fetch(:redis, {}))
       end
 
       @scripts = Readthis::Scripts.new
