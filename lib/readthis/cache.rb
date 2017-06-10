@@ -204,15 +204,20 @@ module Readthis
     #   cache.fetch('today', force: true) # => nil
     #
     def fetch(key, options = {})
-      options ||= {}
-      value = read(key, options) unless options[:force]
+      pool.with do |conn|
+        RedisClassy.redis = conn
+        RedisMutex.with_lock("key_lock") do
+          options ||= {}
+          value = read(key, options) unless options[:force]
 
-      if value.nil? && block_given?
-        value = yield(key)
-        write(key, value, options)
+          if value.nil? && block_given?
+            value = yield(key)
+            write(key, value, options)
+          end
+
+          value
+        end
       end
-
-      value
     end
 
     # Increment a key in the store.
