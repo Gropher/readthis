@@ -60,6 +60,8 @@ module Readthis
         (options[:redis_class] || Redis).new(options.fetch(:redis, {}))
       end
 
+      @race_condition_ttl = options[:race_condition_ttl] || 5
+
       @scripts = Readthis::Scripts.new
     end
 
@@ -204,20 +206,23 @@ module Readthis
     #   cache.fetch('today', force: true) # => nil
     #
     def fetch(key, options = {})
+      options ||= {}
       pool.with do |conn|
         RedisClassy.redis = conn
-        RedisMutex.with_lock("key_lock") do
-          options ||= {}
-          value = read(key, options) unless options[:force]
-
-          if value.nil? && block_given?
-            value = yield(key)
-            write(key, value, options)
+        RedisMutex.with_lock("#{key}_lock") do
+          ttl = conn.ttl(key).to_i
+          if ttl > 0 and ttl < @race_condition_ttl
+            options[:force] = true 
+            conn.expire key, (ttl + @race_condition_ttl)
           end
-
-          value
         end
       end
+      value = read(key, options) unless options[:force]
+      if value.nil? && block_given?
+        value = yield(key)
+        write(key, value, options)
+      end
+      value
     end
 
     # Increment a key in the store.
