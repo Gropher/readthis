@@ -208,14 +208,14 @@ module Readthis
     def fetch(key, options = {})
       options ||= {}
       pool.with do |conn|
-        RedisClassy.redis = conn
-        RedisMutex.with_lock("#{key}_lock") do
+        #RedisClassy.redis = conn
+        #RedisMutex.with_lock("#{key}_lock") do
           ttl = conn.ttl(key).to_i
           if ttl > 0 and ttl < @race_condition_ttl
             options[:force] = true 
             conn.expire key, (ttl + @race_condition_ttl)
           end
-        end
+        #end
       end
       value = read(key, options) unless options[:force]
       if value.nil? && block_given?
