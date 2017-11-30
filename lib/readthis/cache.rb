@@ -439,6 +439,9 @@ module Readthis
     end
 
     def invoke(operation, key, &block)
+      if defined?(ActiveSupport)
+        ActiveSupport::Notifications.publish 'readthis.query', operation, key
+      end
       instrument(operation, key) do
         pool.with(&block)
       end
